@@ -256,25 +256,86 @@ def build_nfa(node, nfa, counter):
     raise RegError("internal error: unknown AST node type %s" % kind)
 
 
+def epsilon_closure(nfa, states):
+    stack = list(states)
+    closure = set(states)
+    while len(stack) > 0:
+        s = stack.pop()
+        for (symbol, target) in nfa[s]:
+            if symbol is None and target not in closure:
+                closure.add(target)
+                stack.append(target)
+    return closure
+
+
+def move(nfa, states, symbol):
+    result = set()
+    for s in states:
+        for (sym, target) in nfa[s]:
+            if sym == symbol:
+                result.add(target)
+    return result
+
+
+def build_dfa(nfa, nfa_start, nfa_accept, alphabet):
+    start_set = frozenset(epsilon_closure(nfa, {nfa_start}))
+
+    dfa_transitions = {}   
+    dfa_accepts = set()
+
+    seen = set([start_set])
+    worklist = [start_set]
+
+    while len(worklist) > 0:
+        current = worklist.pop()
+        dfa_transitions[current] = {}
+
+        if nfa_accept in current:
+            dfa_accepts.add(current)
+
+        for symbol in alphabet:
+            moved = move(nfa, current, symbol)
+            if len(moved) == 0:
+                continue  
+
+            closed = frozenset(epsilon_closure(nfa, moved))
+            dfa_transitions[current][symbol] = closed
+
+            if closed not in seen:
+                seen.add(closed)
+                worklist.append(closed)
+
+    return dfa_transitions, start_set, dfa_accepts
+
+
 regex = input().strip()
 
 tokens = lex_regex(regex)
 ast = Parser(tokens).parse()
 
+alphabet_set = set()
+get_alphabet(ast, alphabet_set)
+alphabet = sorted(alphabet_set)
+
 nfa = {}
 counter = Counter()
+nfa_start, nfa_accept = build_nfa(ast, nfa, counter)
 
-start, accept = build_nfa(ast, nfa, counter)
+dfa, dfa_start, dfa_accepting = build_dfa(
+    nfa,
+    nfa_start,
+    nfa_accept,
+    alphabet
+)
 
-print("Start:", start)
-print("Accept:", accept)
+print("DFA Start:", dfa_start)
+print("DFA Accepting States:", dfa_accepting)
 
-print("Transitions:")
+print("DFA Transitions:")
 
-for state in sorted(nfa):
-    for symbol, target in nfa[state]:
-        if symbol is None:
-            print(state, "--ε-->", target)
-        else:
-            print(state, "--" + symbol + "-->", target)
-
+for state in sorted(dfa):
+    for symbol in alphabet:
+        if symbol in dfa[state]:
+            print(
+                f"{state} --{symbol}--> {dfa[state][symbol]}"
+            )
