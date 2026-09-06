@@ -189,10 +189,92 @@ def get_alphabet(node, alphabet_set):
     elif kind == 'star':
         get_alphabet(node[1], alphabet_set)
 
-regex = sys.stdin.readline().rstrip("\r\n")
+
+class Counter:
+    def __init__(self):
+        self.value = 0
+
+    def next_id(self):
+        v = self.value
+        self.value += 1
+        return v
+
+
+def new_state(nfa, counter):
+    s = counter.next_id()
+    nfa[s] = []
+    return s
+
+
+def add_edge(nfa, frm, symbol, to):
+    nfa[frm].append((symbol, to))
+
+
+def build_nfa(node, nfa, counter):
+    kind = node[0]
+
+    if kind == 'lit':
+        ch = node[1]
+        start = new_state(nfa, counter)
+        accept = new_state(nfa, counter)
+        add_edge(nfa, start, ch, accept)
+        return start, accept
+
+    if kind == 'eps':
+        start = new_state(nfa, counter)
+        accept = new_state(nfa, counter)
+        add_edge(nfa, start, None, accept)
+        return start, accept
+
+    if kind == 'concat':
+        left_start, left_accept = build_nfa(node[1], nfa, counter)
+        right_start, right_accept = build_nfa(node[2], nfa, counter)
+        add_edge(nfa, left_accept, None, right_start)
+        return left_start, right_accept
+
+    if kind == 'union':
+        a_start, a_accept = build_nfa(node[1], nfa, counter)
+        b_start, b_accept = build_nfa(node[2], nfa, counter)
+        start = new_state(nfa, counter)
+        accept = new_state(nfa, counter)
+        add_edge(nfa, start, None, a_start)
+        add_edge(nfa, start, None, b_start)
+        add_edge(nfa, a_accept, None, accept)
+        add_edge(nfa, b_accept, None, accept)
+        return start, accept
+
+    if kind == 'star':
+        inner_start, inner_accept = build_nfa(node[1], nfa, counter)
+        start = new_state(nfa, counter)
+        accept = new_state(nfa, counter)
+        add_edge(nfa, start, None, inner_start)
+        add_edge(nfa, start, None, accept)
+        add_edge(nfa, inner_accept, None, inner_start)
+        add_edge(nfa, inner_accept, None, accept)
+        return start, accept
+
+    raise RegError("internal error: unknown AST node type %s" % kind)
+
+
+regex = input().strip()
 
 tokens = lex_regex(regex)
 ast = Parser(tokens).parse()
 
-print(ast)
+nfa = {}
+counter = Counter()
+
+start, accept = build_nfa(ast, nfa, counter)
+
+print("Start:", start)
+print("Accept:", accept)
+
+print("Transitions:")
+
+for state in sorted(nfa):
+    for symbol, target in nfa[state]:
+        if symbol is None:
+            print(state, "--ε-->", target)
+        else:
+            print(state, "--" + symbol + "-->", target)
 
