@@ -12,6 +12,9 @@ def read_input():
 
     return regex, txt
 
+def is_debug_mode():
+    return "--debug" in sys.argv
+
 def lex_regex(regex):
     tokens = []
     i = 0
@@ -355,29 +358,47 @@ def print_debug_matrix(dfa_transitions, dfa_start, dfa_accepts, alphabet):
                 row += ", -"
         print(row, file=sys.stderr)
 
+def tokenize_words(txt):
+    return txt.split()
 
-regex = input().strip()
 
-tokens = lex_regex(regex)
-ast = Parser(tokens).parse()
+def simulate(dfa_transitions, dfa_start, dfa_accepts, word):
+    curr = dfa_start
+    for ch in word:
+        if ch in dfa_transitions[curr]:
+            curr = dfa_transitions[curr][ch]
+        else:
+            return False
+    return curr in dfa_accepts
 
-alphabet= set()
-get_alphabet(ast, alphabet)
+def main():
+    debug = is_debug_mode()
+    regex_str, txt = read_input()
 
-nfa = {}
-counter = Counter()
-nfa_start, nfa_accept = build_nfa(ast, nfa, counter)
+    try:
+        tokens = lex_regex(regex_str)
+        parser = Parser(tokens)
+        ast = parser.parse()
+    except RegError as e:
+        print("Parse error: " + str(e), file=sys.stderr)
+        sys.exit(1)
 
-dfa_transitions, dfa_start, dfa_accepts = build_dfa(
-    nfa,
-    nfa_start,
-    nfa_accept,
-    alphabet
-)
+    alphabet = set()
+    get_alphabet(ast, alphabet)
 
-print_debug_matrix(
-    dfa_transitions,
-    dfa_start,
-    dfa_accepts,
-    alphabet
-)
+    nfa = {}
+    counter = Counter()
+    nfa_start, nfa_accept = build_nfa(ast, nfa, counter)
+
+    dfa_transitions, dfa_start, dfa_accepts = build_dfa(nfa, nfa_start, nfa_accept, alphabet)
+
+    if debug:
+        print_debug_matrix(dfa_transitions, dfa_start, dfa_accepts, alphabet)
+
+    for word in tokenize_words(txt):
+        if simulate(dfa_transitions, dfa_start, dfa_accepts, word):
+            print(word)
+
+
+if __name__ == "__main__":
+    main()
