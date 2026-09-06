@@ -307,35 +307,77 @@ def build_dfa(nfa, nfa_start, nfa_accept, alphabet):
 
     return dfa_transitions, start_set, dfa_accepts
 
+def assign_state_ids(dfa_transitions, dfa_start):
+    ids = {dfa_start: 0}
+    next_id = 1
+    queue = [dfa_start]
+
+    while len(queue) > 0:
+        current = queue.pop(0)
+        for symbol in dfa_transitions[current]:
+            target = dfa_transitions[current][symbol]
+            if target not in ids:
+                ids[target] = next_id
+                next_id += 1
+                queue.append(target)
+
+    return ids
+
+
+def print_debug_matrix(dfa_transitions, dfa_start, dfa_accepts, alphabet):
+    ids = assign_state_ids(dfa_transitions, dfa_start)
+    sorted_alphabet = sorted(alphabet)
+
+    header = "State"
+    for ch in sorted_alphabet:
+        header += ", " + ch
+    print(header, file=sys.stderr)
+
+    states_in_order = sorted(ids.keys(), key=lambda s: ids[s])
+
+    for state in states_in_order:
+        label = str(ids[state])
+        is_start = (state == dfa_start)
+        is_accept = (state in dfa_accepts)
+
+        if is_start and is_accept:
+            label = "->*" + label
+        elif is_start:
+            label = "->" + label
+        elif is_accept:
+            label = "*" + label
+
+        row = label
+        for ch in sorted_alphabet:
+            if ch in dfa_transitions[state]:
+                row += ", " + str(ids[dfa_transitions[state][ch]])
+            else:
+                row += ", -"
+        print(row, file=sys.stderr)
+
 
 regex = input().strip()
 
 tokens = lex_regex(regex)
 ast = Parser(tokens).parse()
 
-alphabet_set = set()
-get_alphabet(ast, alphabet_set)
-alphabet = sorted(alphabet_set)
+alphabet= set()
+get_alphabet(ast, alphabet)
 
 nfa = {}
 counter = Counter()
 nfa_start, nfa_accept = build_nfa(ast, nfa, counter)
 
-dfa, dfa_start, dfa_accepting = build_dfa(
+dfa_transitions, dfa_start, dfa_accepts = build_dfa(
     nfa,
     nfa_start,
     nfa_accept,
     alphabet
 )
 
-print("DFA Start:", dfa_start)
-print("DFA Accepting States:", dfa_accepting)
-
-print("DFA Transitions:")
-
-for state in sorted(dfa):
-    for symbol in alphabet:
-        if symbol in dfa[state]:
-            print(
-                f"{state} --{symbol}--> {dfa[state][symbol]}"
-            )
+print_debug_matrix(
+    dfa_transitions,
+    dfa_start,
+    dfa_accepts,
+    alphabet
+)
