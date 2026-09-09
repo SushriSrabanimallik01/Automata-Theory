@@ -60,18 +60,20 @@ def lex_regex(regex):
                     end_c = regex[j + 2]
                     if ord(start_c) > ord(end_c):
                         raise RegError("invalid character range %s-%s" % (start_c, end_c))
-                    code = ord(start_c)
-                    while code <= ord(end_c):
-                        class_chars.append(chr(code))
-                        code += 1
+                    cd = ord(start_c)
+                    while cd <= ord(end_c):
+                        class_chars.append(chr(cd))
+                        cd += 1
                     j += 3
                     continue
+
 
                 class_chars.append(regex[j])
                 j += 1
 
             if not found_close:
                 raise RegError("missing closing ']' in character class")
+
             if len(class_chars) == 0:
                 raise RegError("empty character class []")
 
